@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>いいね機能付きBBS</title>
+</head>
+<body>
+    <h1>投稿一覧</h1>
+
+    <!-- 新しい投稿フォーム -->
+    <form onsubmit="addPost(event)">
+        <input type="text" id="newPostInput" placeholder="新しい投稿を書く">
+        <button type="submit">投稿</button>
+    </form>
+
+    <ul id="postList">
+        <% posts.forEach(post => { %>
+            <li>
+                <strong><%= post.user %></strong>: <%= post.content %>
+                <button onclick="likePost(<%= post.post_id %>)">いいね</button>
+                <span id="likes<%= post.post_id %>"><%= post.likes %></span>
+
+                <!-- コメントフォーム -->
+                <form onsubmit="addComment(event, <%= post.post_id %>)">
+                    <input type="text" id="commentInput<%= post.post_id %>" placeholder="コメントを書く">
+                    <button type="submit">投稿</button>
+                </form>
+
+                <!-- コメント表示 -->
+                <ul id="comments<%= post.post_id %>">
+                    <% post.comments.forEach(comment => { %>
+                        <li><strong><%= comment.user %></strong>: <%= comment.content %></li>
+                    <% }); %>
+                </ul>
+            </li>
+        <% }); %>
+    </ul>
+
+    <h2>検索機能</h2>
+    <form onsubmit="searchPosts(event)">
+        <input type="text" id="searchInput" placeholder="キーワードを入力">
+        <button type="submit">検索</button>
+    </form>
+
+    <ul id="searchResults"></ul>
+
+    <script>
+        // いいね機能
+        async function likePost(postId) {
+            try {
+                const response = await fetch("/api/like", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ post_id: postId })
+                });
+
+                if (!response.ok) throw new Error("いいね処理に失敗しました");
+
+                const result = await response.json();
+                document.getElementById(`likes${postId}`).innerText = result.likes;
+            } catch (error) {
+                console.error(error);
+                alert("いいねの処理中にエラーが発生しました");
+            }
+        }
+
+        // 新しい投稿作成
+        async function addPost(event) {
+            event.preventDefault();
+            const content = document.getElementById("newPostInput").value;
+
+            try {
+                const response = await fetch("/api/post", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content })
+                });
+
+                if (!response.ok) throw new Error("投稿に失敗しました");
+
+                const result = await response.json();
+                location.reload(); // ページリロード
+            } catch (error) {
+                console.error(error);
+                alert("投稿中にエラーが発生しました");
+            }
+        }
+
+        // コメント投稿
+        async function addComment(event, postId) {
+            event.preventDefault();
+            const commentInput = document.getElementById(`commentInput${postId}`);
+            const comment = commentInput.value;
+
+            try {
+                const response = await fetch("/api/comment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ post_id: postId, comment })
+                });
+
+                if (!response.ok) throw new Error("コメント投稿に失敗しました");
+
+                const result = await response.json();
+                const commentsList = document.getElementById(`comments${postId}`);
+                commentsList.innerHTML = result.comments.map(c => `<li><strong>${c.user}</strong>: ${c.content}</li>`).join("");
+                commentInput.value = ""; // 入力欄をクリア
+            } catch (error) {
+                console.error(error);
+                alert("コメント投稿中にエラーが発生しました");
+            }
+        }
+
+        // 検索機能
+        async function searchPosts(event) {
+            event.preventDefault();
+            const keyword = document.getElementById("searchInput").value;
+
+            try {
+                const response = await fetch("/api/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ keyword })
+                });
+
+                if (!response.ok) throw new Error("検索に失敗しました");
+
+                const result = await response.json();
+                const resultsList = document.getElementById("searchResults");
+                resultsList.innerHTML = result.results.map(post =>
+                    `<li><strong>${post.user}</strong>: ${post.content}</li>`
+                ).join("");
+            } catch (error) {
+                console.error(error);
+                alert("検索中にエラーが発生しました");
+            }
+        }
+    </script>
+</body>
+</html>
